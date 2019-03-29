@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["Steve Biedermann <steve.biedermann@mquadr.at>"]
 edition = "2018"
 
+[features]
+default = ["serde_json"]
+use-toml = ["toml"]
+
 [dependencies]
 serde = "1.0.85"
-serde_json = "1.0.36"
+serde_json = {version = "1.0.36", optional = true}
+toml = {version = "0.5.0", optional = true}

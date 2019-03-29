@@ -8,7 +8,7 @@ use serde::Serialize;
 #[derive(Debug)]
 pub enum ConfigError {
     IoError(std::io::Error),
-    ParseError(std::io::Error),
+    ParseError(Box<std::error::Error>),
 }
 
 fn read(file: &mut File) -> std::result::Result<String, std::io::Error> {
@@ -19,6 +19,18 @@ fn read(file: &mut File) -> std::result::Result<String, std::io::Error> {
     }
 }
 
+#[cfg(feature = "default")]
+mod serializer {
+    pub use serde_json::from_str as deserialize;
+    pub use serde_json::to_string_pretty as serialize;
+}
+
+#[cfg(all(not(feature = "default"), feature = "use-toml"))]
+mod serializer {
+    pub use toml::from_str as deserialize;
+    pub use toml::to_string_pretty as serialize;
+}
+
 pub fn load_config<PathLike, Config>(path: PathLike) -> Result<Config, ConfigError>
     where
         Config: DeserializeOwned,
@@ -27,7 +39,7 @@ pub fn load_config<PathLike, Config>(path: PathLike) -> Result<Config, ConfigErr
     let file = path.as_ref();
     match File::open(&file) {
         Ok(mut f) => match read(&mut f) {
-            Ok(content) => match serde_json::from_str(&content) {
+            Ok(content) => match serializer::deserialize(&content) {
                 Ok(c) => Ok(c),
                 Err(e) => Err(ConfigError::ParseError(e.into())),
             }
@@ -42,7 +54,7 @@ pub fn save_config<PathLike, Config>(path: PathLike, config: &Config) -> Result<
         Config: Serialize,
         PathLike: AsRef<Path>,
 {
-    File::create(path)?.write_all(&serde_json::to_string_pretty(&config).unwrap().as_bytes())
+    File::create(path)?.write_all(&serializer::serialize(&config).unwrap().as_bytes())
 }
 
 #[cfg(test)]
